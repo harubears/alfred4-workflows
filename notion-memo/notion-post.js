@@ -16,8 +16,9 @@ const path = require('path');
 // Node.js 18 以前でも fetch を使うためのラッパ
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
-// ログファイルのパスを、スクリプトと同じディレクトリに設定
-const LOG_FILE_PATH = path.join(__dirname, 'notion-post.log');
+// ログファイルのパスを、環境変数または既定値から設定
+const LOG_FILE_PATH = process.env.LOG_FILE_PATH || path.join(__dirname, '..', 'notion-post.log');
+logToFile(`Using log file: ${LOG_FILE_PATH}`, 'DEBUG');
 
 // ログレベルの定数定義を追加
 const LOG_LEVELS = {

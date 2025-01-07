@@ -3,35 +3,19 @@
 export TZ="Asia/Tokyo"
 # Node.js のパス
 NODE="/opt/homebrew/bin/node"
-#SCRIPT_PATH="path/to/notion-post.js"
 
-# Alfred Workflowの設定例:
-# 1. 通常のメモ追加 (nm)
-#    Input: {query} -> Run Script: "$NODE" "$SCRIPT_PATH" "{query}"
-#
-# 2. タイトル指定付きメモ追加 (nt)
-#    Input: {query} -> Run Script: "$NODE" "$SCRIPT_PATH" --title "{var:title}" "{query}"
+# 必須の環境変数
+# ここで定義してもよいし、Alfred の環境変数から渡すこともできる
+#SCRIPT_PATH="/path/to/dist/notion-post.bundle.js"
+#export NOTION_TOKEN="your_token_here"
+#export NOTION_DB_ID="your_database_id_here"
 
-#### LOG MODE ####
-# ログファイル出力なし
+#### LOG MODE & LEVEL ####
 export LOG_MODE=none
-
-# ログファイル新規作成（既存を削除）
-#export LOG_MODE=new
-
-# ログファイル追記モード（デフォルト）
-#export LOG_MODE=append
-
-#### LOG OUTPUT LEVEL ####
-# 全てのログを出力
-#export LOG_LEVEL=DEBUG
-
-# エラーのみ出力
-#export LOG_LEVEL=ERROR
-
-# 警告とエラーのみ出力
 export LOG_LEVEL=WARN
 
+# オプション: デフォルトと異なるログファイルパスを使用する場合のみ設定
+#export LOG_FILE_PATH="/path/to/custom/notion-post.log"
 
 # Alfred からの引数をそのまま渡す
 "$NODE" "$SCRIPT_PATH" "$@"
