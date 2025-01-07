@@ -16,11 +16,7 @@ const path = require('path');
 // Node.js 18 以前でも fetch を使うためのラッパ
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
-// ログファイルのパスを、環境変数または既定値から設定
-const LOG_FILE_PATH = process.env.LOG_FILE_PATH || path.join(__dirname, '..', 'notion-post.log');
-logToFile(`Using log file: ${LOG_FILE_PATH}`, 'DEBUG');
-
-// ログレベルの定数定義を追加
+// ログ関連の定数と関数を先に定義
 const LOG_LEVELS = {
   ERROR: 0,
   WARN: 1,
@@ -28,7 +24,6 @@ const LOG_LEVELS = {
   DEBUG: 3
 };
 
-// ログ出力モードの定数定義
 const LOG_MODES = {
   NONE: 'none',      // ログファイル出力なし
   NEW: 'new',        // 新規作成（既存を削除）
@@ -40,16 +35,14 @@ const LOG_MODE = process.env.LOG_MODE || LOG_MODES.APPEND;  // デフォルト�
 const LOG_LEVEL = process.env.LOG_LEVEL || 'INFO';
 const CURRENT_LOG_LEVEL = LOG_LEVELS[LOG_LEVEL] || LOG_LEVELS.INFO;
 
-// ログファイルの初期化
-if (LOG_MODE === LOG_MODES.NEW && fs.existsSync(LOG_FILE_PATH)) {
-  fs.unlinkSync(LOG_FILE_PATH);  // 既存のログファイルを削除
-}
-
 /**
  * ファイル & コンソール両方へログを出すヘルパー関数
  */
 function logToFile(message, level = 'INFO') {
-  // 現在のログレベルより高いレベルのログは出力しない
+  if (!LOG_LEVELS[level] && LOG_LEVELS[level] !== 0) {
+    level = 'INFO';  // 無効なログレベルの場合はINFOにフォールバック
+  }
+  
   if (LOG_LEVELS[level] > CURRENT_LOG_LEVEL) {
     return;
   }
@@ -72,6 +65,15 @@ function logToFile(message, level = 'INFO') {
       console.error(`Failed to write to log file: ${err.message}`);
     }
   }
+}
+
+// ログファイルのパスを設定（logToFileの定義後に実行）
+const LOG_FILE_PATH = process.env.LOG_FILE_PATH || path.join(__dirname, '..', 'notion-post.log');
+logToFile(`Using log file: ${LOG_FILE_PATH}`, 'DEBUG');
+
+// ログファイルの初期化
+if (LOG_MODE === LOG_MODES.NEW && fs.existsSync(LOG_FILE_PATH)) {
+  fs.unlinkSync(LOG_FILE_PATH);  // 既存のログファイルを削除
 }
 
 // 起動時のログ出力を追加
@@ -325,16 +327,27 @@ async function updatePageTitle(pageId, newTitle) {
     let page = await findTodaysPage(NOTION_DB_ID, todayStr);
 
     if (!page) {
-      // 今日のページがなければ作成
+      // ページがない場合は新規作成
       page = await createPage(NOTION_DB_ID, pageTitle, todayStr);
+      logToFile(`Created new page with ID: ${page.id}`);
     }
 
     if (args[0] === '--title') {
-      // タイトル更新モード
-      await updatePageTitle(page.id, pageTitle);
-      console.log('Notion page title updated successfully.');
+      // タイトル更新の場合
+      try {
+        const updatedPage = await updatePageTitle(page.id, pageTitle);
+        logToFile(`Successfully updated title for page ID: ${updatedPage.id}`, 'DEBUG');
+        if (updatedPage.properties?.Name?.title?.[0]?.text?.content === pageTitle) {
+          console.log('Notion page title updated successfully.');
+        } else {
+          throw new Error('Title update verification failed');
+        }
+      } catch (error) {
+        logToFile(`Title update failed: ${error.message}`, 'ERROR');
+        throw error;
+      }
     } else {
-      // メモ追加モード
+      // メモ追加の場合
       await appendParagraph(page.id, textToAppend);
       console.log('Notion page content updated successfully.');
     }
