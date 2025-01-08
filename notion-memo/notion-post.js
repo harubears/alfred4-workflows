@@ -283,6 +283,66 @@ async function appendParagraph(pageId, text) {
   }
 }
 
+/**
+ * 既存ページに Bookmark ブロックを追加
+ */
+async function appendBookmark(pageId, url, text) {
+  try {
+    const cleanPageId = pageId.replace(/[^a-zA-Z0-9]/g, '');
+    logToFile(`Clean pageId: ${cleanPageId}`);
+
+    const apiUrl = `${NOTION_BASE_URL}/blocks/${cleanPageId}/children`;
+    logToFile(`API URL: ${apiUrl}`);
+
+    const payload = {
+      children: [
+        {
+          object: 'block',
+          type: 'bookmark',
+          bookmark: {
+            url: url
+          }
+        },
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [
+              {
+                type: 'text',
+                text: {
+                  content: text
+                }
+              }
+            ]
+          }
+        }
+      ]
+    };
+
+    logToFile(`Sending request with payload: ${JSON.stringify(payload)}`);
+
+    const res = await fetch(apiUrl, {
+      method: 'PATCH',
+      headers: getNotionHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      logToFile(`API Response Error: ${res.status} - ${errBody}`, 'ERROR');
+      throw new Error(`Append bookmark error: ${res.status} - ${errBody}`);
+    }
+
+    const data = await res.json();
+    logToFile(`API Response Success: ${JSON.stringify(data)}`);
+    return data;
+  } catch (err) {
+    logToFile(`appendBookmark error: ${err.message}`, 'ERROR');
+    throw err;
+  }
+}
+
 // Notionページのタイトルを更新する関数を追加
 async function updatePageTitle(pageId, newTitle) {
   logToFile(`Updating page title to: ${newTitle}`);
@@ -345,6 +405,18 @@ async function updatePageTitle(pageId, newTitle) {
       } catch (error) {
         logToFile(`Title update failed: ${error.message}`, 'ERROR');
         throw error;
+      }
+    } else if (args[0] === '--bookmark') {
+      // Bookmark追加の場合
+      const bookmarkUrl = args[1];
+      try {
+        new URL(bookmarkUrl); // URL形式の検証
+        await appendBookmark(page.id, bookmarkUrl, textToAppend);
+        console.log('Notion page bookmark added successfully.');
+      } catch (error) {
+        logToFile(`Invalid URL for bookmark: ${bookmarkUrl}, falling back to text append. Error: ${error.message}`, 'WARN');
+        await appendParagraph(page.id, textToAppend);
+        console.log('Notion page content updated successfully.');
       }
     } else {
       // メモ追加の場合
