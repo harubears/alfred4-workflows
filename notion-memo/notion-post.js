@@ -12,6 +12,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { DateTime } = require('luxon');
+const config = require('./config');
 
 // Node.js 18 以前でも fetch を使うためのラッパ
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
@@ -31,8 +33,8 @@ const LOG_MODES = {
 };
 
 // 環境変数からログ設定を取得
-const LOG_MODE = process.env.LOG_MODE || LOG_MODES.APPEND;  // デフォルトは追記モード
-const LOG_LEVEL = process.env.LOG_LEVEL || 'INFO';
+const LOG_MODE = config.LOG_MODE;  // デフォルトは追記モード
+const LOG_LEVEL = config.LOG_LEVEL;
 const CURRENT_LOG_LEVEL = LOG_LEVELS[LOG_LEVEL] || LOG_LEVELS.INFO;
 
 /**
@@ -60,20 +62,16 @@ function logToFile(message, level = 'INFO') {
   // ログファイルへの出力（LOG_MODE に応じて）
   if (LOG_MODE !== LOG_MODES.NONE) {
     try {
-      fs.appendFileSync(LOG_FILE_PATH, logLine, { encoding: 'utf8' });
+      fs.appendFileSync(config.LOG_FILE_PATH, logLine, { encoding: 'utf8' });
     } catch (err) {
       console.error(`Failed to write to log file: ${err.message}`);
     }
   }
 }
 
-// ログファイルのパスを設定（logToFileの定義後に実行）
-const LOG_FILE_PATH = process.env.LOG_FILE_PATH || path.join(__dirname, '..', 'notion-post.log');
-logToFile(`Using log file: ${LOG_FILE_PATH}`, 'DEBUG');
-
 // ログファイルの初期化
-if (LOG_MODE === LOG_MODES.NEW && fs.existsSync(LOG_FILE_PATH)) {
-  fs.unlinkSync(LOG_FILE_PATH);  // 既存のログファイルを削除
+if (LOG_MODE === LOG_MODES.NEW && fs.existsSync(config.LOG_FILE_PATH)) {
+  fs.unlinkSync(config.LOG_FILE_PATH);  // 既存のログファイルを削除
 }
 
 // 起動時のログ出力を追加
@@ -81,8 +79,8 @@ logToFile(`Log Mode: ${LOG_MODE}`, 'DEBUG');
 logToFile(`Log Level: ${LOG_LEVEL}`, 'DEBUG');
 
 // Notion API関連: 環境変数から取得
-const NOTION_TOKEN = process.env.NOTION_TOKEN || '';
-const NOTION_DB_ID = process.env.NOTION_DB_ID || '';
+const NOTION_TOKEN = config.NOTION_TOKEN;
+const NOTION_DB_ID = config.NOTION_DB_ID;
 
 if (!NOTION_TOKEN || !NOTION_DB_ID) {
   logToFile('NOTION_TOKEN or NOTION_DB_ID is missing.', 'ERROR');
@@ -95,7 +93,7 @@ logToFile(`NOTION_TOKEN length=${NOTION_TOKEN.length}`, 'DEBUG');
 logToFile(`NOTION_DB_ID=${NOTION_DB_ID}`, 'DEBUG');
 
 // 今日の日付(YYYY-MM-DD)をタイトルのデフォルト値として先に定義
-const todayStr = new Date().toISOString().slice(0, 10);
+const todayStr = DateTime.now().setZone(config.TIMEZONE).toISODate();
 
 // コマンドライン引数の処理をシンプル化
 const args = process.argv.slice(2)[0]?.split(/\s+/) || [];
@@ -126,25 +124,15 @@ if (!memoContent) {
 }
 
 function getJSTString() {
-  // 現在時刻のミリ秒 + 9時間
-  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-
-  // YYYY-MM-DD HH:mm:ss 形式にフォーマット
-  const yyyy = jst.getUTCFullYear();
-  const mm = String(jst.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(jst.getUTCDate()).padStart(2, "0");
-  const hh = String(jst.getUTCHours()).padStart(2, "0");
-  const mi = String(jst.getUTCMinutes()).padStart(2, "0");
-  const ss = String(jst.getUTCSeconds()).padStart(2, "0");
-
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+  // 現在時刻をタイムゾーンに合わせてフォーマット
+  return DateTime.now().setZone(config.TIMEZONE).toFormat('yyyy-MM-dd HH:mm:ss');
 }
 
 const textToAppend = `${getJSTString()} ${memoContent || '(空のメモ)'}`;
 
 // Notion API関連の定数を追加
-const NOTION_API_VERSION = '2022-02-22';
-const NOTION_BASE_URL = 'https://api.notion.com/v1';
+const NOTION_API_VERSION = config.NOTION_API_VERSION;
+const NOTION_BASE_URL = config.NOTION_BASE_URL;
 
 // ヘッダー作成のヘルパー関数を追加
 function getNotionHeaders() {
@@ -159,7 +147,7 @@ function getNotionHeaders() {
 async function findTodaysPage(dbId, dateStr) {
   logToFile(`Searching DB for page with date "${dateStr}"`);
 
-  const url = `https://api.notion.com/v1/databases/${dbId}/query`;
+  const url = `${NOTION_BASE_URL}/databases/${dbId}/query`;
   const bodyFilter = {
     filter: {
       property: 'Date',  // Date プロパティで検索
@@ -193,7 +181,7 @@ async function findTodaysPage(dbId, dateStr) {
 // createPage 関数を修正（タイトルを引数で受け取る）
 async function createPage(dbId, titleStr, dateStr) {
   logToFile(`Creating a new page titled "${titleStr}"`);
-  const url = 'https://api.notion.com/v1/pages';
+  const url = `${NOTION_BASE_URL}/pages`;
   const bodyData = {
     parent: { database_id: dbId },
     properties: {

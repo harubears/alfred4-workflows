@@ -103,6 +103,7 @@ nb ブックマークのURL    # ブックマークを追加
 - `dist/notion-post.bundle.js`: ビルド済み実行ファイル
 - `package.json`: プロジェクト設定
 - `notion-post.log`: ログファイル
+- `config.js`: 環境変数の設定ファイル
 
 ## プロジェクトの特徴
 
