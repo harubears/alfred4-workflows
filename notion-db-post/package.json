@@ -1,0 +1,19 @@
+{
+  "name": "notion-db-post",
+  "version": "1.0.0",
+  "description": "Post items to Notion database",
+  "main": "notion-db-post.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "esbuild notion-db-post.js --bundle --platform=node --outfile=dist/notion-db-post.bundle.js --external:node-fetch"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "node-fetch": "^3.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.5"
+  }
+}
